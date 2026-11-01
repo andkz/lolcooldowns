@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Swords, Clock, Search, X } from 'lucide-react';
 import { calculateCooldown, abilityHasteToCdr, getChampionIconUrl, getSpellIconUrl } from '../services/riotApi';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 const KEYS = ['Q', 'W', 'E', 'R'];
 
@@ -39,203 +43,234 @@ export default function MatchupCompare({
   const diffAbs = Math.abs(diff);
 
   return (
-    <div className="rounded-xl border border-[#1d222e] bg-[#090b10] p-4 sm:p-5 mb-5 relative overflow-hidden">
+    <Card className="rounded-xl border-border bg-card p-4 sm:p-5 mb-5 relative overflow-hidden">
       
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-[#14161f] mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-[#c8aa6e]/15 border border-[#c8aa6e]/30 flex items-center justify-center text-[#c8aa6e]">
+          <div className="w-6 h-6 rounded bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
             <Swords className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-xs sm:text-sm font-bold text-white">
-              1v1 Matchup Trading Window
-            </h3>
+            <h2 className="text-sm font-bold text-foreground">
+              Matchup Duel / Trade Window
+            </h2>
+            <p className="text-[11px] text-muted-foreground">
+              Porównaj okna cooldownów dwóch umiejętności w pojedynku 1v1
+            </p>
           </div>
         </div>
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={onClose}
-          className="text-[11px] text-[#626c80] hover:text-white px-2 py-0.5 rounded bg-[#10131b] border border-[#191d26] transition"
+          className="text-muted-foreground hover:text-foreground h-7 w-7"
         >
-          Close
-        </button>
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Symmetric Comparison Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-stretch">
+      {/* Two Champions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
-        {/* Left: Your Champion */}
-        <div className="bg-[#07080c] rounded-lg p-3.5 border border-[#161922] flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
+        {/* CHAMPION A (YOU) */}
+        <div className="p-3.5 rounded-lg bg-secondary/30 border border-border">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-md overflow-hidden border border-border bg-muted">
                 <img 
                   src={getChampionIconUrl(champA.id, patch)} 
-                  alt={champA.name} 
-                  className="w-8 h-8 rounded border border-[#4a82e8]/60"
+                  alt={champA.name}
+                  className="w-full h-full object-cover" 
                 />
-                <div>
-                  <span className="text-[9px] text-[#4a82e8] font-bold uppercase tracking-wider block">Your Champion</span>
-                  <span className="text-xs font-bold text-white">{champA.name}</span>
-                </div>
               </div>
-              <span className="text-[11px] tabular-nums text-[#4a82e8]">
-                {hasteA} AH
-              </span>
+              <div>
+                <span className="text-xs font-bold text-foreground block">
+                  {champA.name} <span className="text-[10px] text-primary">(Ty)</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Haste: {hasteA} (-{abilityHasteToCdr(hasteA)}%)
+                </span>
+              </div>
             </div>
 
-            {/* Spell Key Switcher */}
-            <div className="flex items-center gap-1 mb-2.5">
-              {KEYS.map((k) => (
-                <button
+            <Badge variant="outline" className="text-[10px] border-primary/40 text-primary bg-primary/10">
+              Twoja postać
+            </Badge>
+          </div>
+
+          {/* Spell Selector */}
+          <div className="flex items-center gap-1.5 mb-2.5">
+            {KEYS.map((k, i) => {
+              const sp = champA?.spells?.[i];
+              const isSelected = selectedSpellKeyA === k;
+              return (
+                <Button
                   key={k}
+                  variant={isSelected ? 'default' : 'outline'}
+                  size="xs"
                   onClick={() => {
                     setSelectedSpellKeyA(k);
                     setRankA(0);
                   }}
-                  className={`flex-1 py-1 rounded text-xs font-bold transition ${
-                    selectedSpellKeyA === k 
-                      ? 'bg-[#4a82e8] text-white font-extrabold' 
-                      : 'bg-[#0e1017] text-[#5e6678] border border-[#161a24] hover:text-white'
+                  className={`flex-1 h-7 text-xs font-bold font-mono transition ${
+                    isSelected 
+                      ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90' 
+                      : 'border-border bg-background/80 text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
                 >
                   {k}
-                </button>
-              ))}
-            </div>
-
-            {/* Spell Details */}
-            {spellA && (
-              <div className="flex items-center gap-2 bg-[#0a0c12] p-2 rounded border border-[#151821]">
-                <img 
-                  src={getSpellIconUrl(spellA.image.full, patch)} 
-                  alt={spellA.name} 
-                  className="w-7 h-7 rounded"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-white truncate">{spellA.name}</div>
-                  <div className="flex items-center gap-1 text-[10px] text-[#5e6678]">
-                    <span>Rank:</span>
-                    {spellA.cooldown?.map((_, rIdx) => (
-                      <button
-                        key={rIdx}
-                        onClick={() => setRankA(rIdx)}
-                        className={`px-1 rounded tabular-nums ${
-                          rankA === rIdx ? 'bg-[#4a82e8] text-white font-bold' : 'text-[#5e6678]'
-                        }`}
-                      >
-                        {rIdx + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                </Button>
+              );
+            })}
           </div>
 
-          <div className="mt-3 pt-2 border-t border-[#13161f] flex items-baseline justify-between">
-            <span className="text-[11px] text-[#555e71]">Cooldown:</span>
-            <span className="text-xl tabular-nums font-extrabold text-white">
+          {/* Rank Selector */}
+          {spellA && (
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="text-muted-foreground text-[11px] truncate max-w-[130px] font-medium">
+                {spellA.name}
+              </span>
+              <div className="flex items-center gap-1">
+                {spellA.cooldown?.map((cd, idx) => (
+                  <Button
+                    key={idx}
+                    variant={rankA === idx ? 'default' : 'outline'}
+                    size="xs"
+                    onClick={() => setRankA(idx)}
+                    className={`h-5 px-1.5 text-[10px] font-mono border transition ${
+                      rankA === idx
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    r{idx + 1}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Cooldown Output */}
+          <div className="pt-2 border-t border-border flex items-baseline justify-between font-mono">
+            <span className="text-[11px] text-muted-foreground">Aktualny CD:</span>
+            <span className="text-lg font-black text-primary">
               {reducedCdA}s
             </span>
           </div>
         </div>
 
-        {/* Right: Opponent */}
-        <div className="bg-[#07080c] rounded-lg p-3.5 border border-[#161922] flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
+        {/* CHAMPION B (OPPONENT) */}
+        <div className="p-3.5 rounded-lg bg-secondary/30 border border-border">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-md overflow-hidden border border-border bg-muted">
                 <img 
                   src={getChampionIconUrl(champB.id, patch)} 
-                  alt={champB.name} 
-                  className="w-8 h-8 rounded border border-[#c8aa6e]/60"
+                  alt={champB.name}
+                  className="w-full h-full object-cover" 
                 />
-                <div>
-                  <span className="text-[9px] text-[#c8aa6e] font-bold uppercase tracking-wider block">Opponent</span>
-                  <span className="text-xs font-bold text-white">{champB.name}</span>
-                </div>
               </div>
-
-              <button
-                onClick={onOpenSearchB}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-[#10131b] text-[#717b90] border border-[#191d26] hover:text-white"
-              >
-                <Search className="w-3 h-3" />
-                <span>Switch</span>
-              </button>
+              <div>
+                <span className="text-xs font-bold text-foreground block">
+                  {champB.name} <span className="text-[10px] text-destructive">(Przeciwnik)</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Haste: {hasteB} (-{abilityHasteToCdr(hasteB)}%)
+                </span>
+              </div>
             </div>
 
-            {/* Opponent Haste Slider */}
-            <div className="flex items-center gap-2 mb-2.5 bg-[#0a0c12] p-1.5 rounded border border-[#151821]">
-              <span className="text-[10px] text-[#5e6678]">AH:</span>
-              <input
-                type="range"
-                min="0"
-                max="140"
-                step="5"
-                value={hasteB}
-                onChange={(e) => setHasteB(Number(e.target.value))}
-                className="flex-1 h-1 bg-[#141822] accent-[#c8aa6e]"
-              />
-              <span className="text-xs tabular-nums text-[#c8aa6e] font-bold w-10 text-right">
-                {hasteB}
-              </span>
-            </div>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={onOpenSearchB}
+              className="h-6 px-2 text-[10px] border-border bg-background/80 hover:bg-secondary text-muted-foreground hover:text-foreground gap-1"
+            >
+              <Search className="w-2.5 h-2.5" />
+              <span>Zmień</span>
+            </Button>
+          </div>
 
-            {/* Spell Key Switcher */}
-            <div className="flex items-center gap-1 mb-2.5">
-              {KEYS.map((k) => (
-                <button
+          {/* Spell Selector */}
+          <div className="flex items-center gap-1.5 mb-2.5">
+            {KEYS.map((k, i) => {
+              const sp = champB?.spells?.[i];
+              const isSelected = selectedSpellKeyB === k;
+              return (
+                <Button
                   key={k}
+                  variant={isSelected ? 'destructive' : 'outline'}
+                  size="xs"
                   onClick={() => {
                     setSelectedSpellKeyB(k);
                     setRankB(0);
                   }}
-                  className={`flex-1 py-1 rounded text-xs font-bold transition ${
-                    selectedSpellKeyB === k 
-                      ? 'bg-[#c8aa6e] text-black font-extrabold' 
-                      : 'bg-[#0e1017] text-[#5e6678] border border-[#161a24] hover:text-white'
+                  className={`flex-1 h-7 text-xs font-bold font-mono transition ${
+                    isSelected 
+                      ? 'bg-destructive text-white border-destructive hover:bg-destructive/90' 
+                      : 'border-border bg-background/80 text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
                 >
                   {k}
-                </button>
-              ))}
-            </div>
-
-            {/* Spell Details */}
-            {spellB && (
-              <div className="flex items-center gap-2 bg-[#0a0c12] p-2 rounded border border-[#151821]">
-                <img 
-                  src={getSpellIconUrl(spellB.image.full, patch)} 
-                  alt={spellB.name} 
-                  className="w-7 h-7 rounded"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-white truncate">{spellB.name}</div>
-                  <div className="flex items-center gap-1 text-[10px] text-[#5e6678]">
-                    <span>Rank:</span>
-                    {spellB.cooldown?.map((_, rIdx) => (
-                      <button
-                        key={rIdx}
-                        onClick={() => setRankB(rIdx)}
-                        className={`px-1 rounded tabular-nums ${
-                          rankB === rIdx ? 'bg-[#c8aa6e] text-black font-bold' : 'text-[#5e6678]'
-                        }`}
-                      >
-                        {rIdx + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                </Button>
+              );
+            })}
           </div>
 
-          <div className="mt-3 pt-2 border-t border-[#13161f] flex items-baseline justify-between">
-            <span className="text-[11px] text-[#555e71]">Cooldown:</span>
-            <span className="text-xl tabular-nums font-extrabold text-white">
+          {/* Rank Selector & Haste slider for opponent */}
+          {spellB && (
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="text-muted-foreground text-[11px] truncate max-w-[130px] font-medium">
+                {spellB.name}
+              </span>
+              <div className="flex items-center gap-1">
+                {spellB.cooldown?.map((cd, idx) => (
+                  <Button
+                    key={idx}
+                    variant={rankB === idx ? 'destructive' : 'outline'}
+                    size="xs"
+                    onClick={() => setRankB(idx)}
+                    className={`h-5 px-1.5 text-[10px] font-mono border transition ${
+                      rankB === idx
+                        ? 'bg-destructive text-white border-destructive'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    r{idx + 1}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Opponent haste control bar */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] text-muted-foreground shrink-0">Haste wroga:</span>
+            <input 
+              type="range"
+              min="0"
+              max="150"
+              step="5"
+              value={hasteB}
+              onChange={(e) => setHasteB(parseInt(e.target.value, 10) || 0)}
+              className="w-full h-1 bg-secondary rounded-lg appearance-none cursor-pointer accent-destructive"
+            />
+            <Input 
+              type="number"
+              min="0"
+              max="250"
+              value={hasteB}
+              onChange={(e) => setHasteB(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              className="w-10 h-5 text-center text-[10px] font-bold bg-background border-border text-foreground rounded p-0"
+            />
+          </div>
+
+          {/* Cooldown Output */}
+          <div className="pt-2 border-t border-border flex items-baseline justify-between font-mono">
+            <span className="text-[11px] text-muted-foreground">Aktualny CD:</span>
+            <span className="text-lg font-black text-destructive">
               {reducedCdB}s
             </span>
           </div>
@@ -243,26 +278,36 @@ export default function MatchupCompare({
 
       </div>
 
-      {/* Trade Window Result */}
-      <div className="mt-3 p-2.5 rounded-lg bg-[#07080c] border border-[#161922] flex items-center justify-between text-xs">
-        <span className="text-[#647087]">Trade Window:</span>
-        <div className="tabular-nums font-semibold">
-          {diff < 0 ? (
-            <span className="text-[#10b981]">
-              Advantage You: Your {selectedSpellKeyA} is ready {diffAbs}s before enemy {selectedSpellKeyB}
-            </span>
-          ) : diff > 0 ? (
-            <span className="text-[#f43f5e]">
-              Enemy Advantage: Enemy {selectedSpellKeyB} is ready {diffAbs}s before your {selectedSpellKeyA}
-            </span>
-          ) : (
-            <span className="text-[#8e9ab2]">
-              Tied Cooldown: Both abilities ready in {reducedCdA}s
-            </span>
-          )}
+      {/* Trade Window Verdict Banner */}
+      <div className="mt-4 p-3 rounded-lg border border-border bg-background/80 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 text-xs">
+          <Clock className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-foreground">
+            {diff === 0 ? (
+              <span>Obie umiejętności mają dokładnie taki sam cooldown!</span>
+            ) : diff < 0 ? (
+              <span>
+                Twój <strong className="text-primary font-mono">{selectedSpellKeyA}</strong> wraca o{' '}
+                <strong className="text-emerald-400 font-mono">{diffAbs}s szybciej</strong> niż przeciwnika {selectedSpellKeyB}!
+              </span>
+            ) : (
+              <span>
+                <strong className="text-destructive font-mono">Uwaga:</strong> Skill przeciwnika{' '}
+                wraca o <strong className="text-destructive font-mono">{diffAbs}s szybciej</strong> niż Twój {selectedSpellKeyA}!
+              </span>
+            )}
+          </span>
         </div>
+
+        <Badge variant="outline" className={`font-mono text-xs px-2.5 py-1 ${
+          diff <= 0 
+            ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
+            : 'text-destructive border-destructive/30 bg-destructive/10'
+        }`}>
+          Δ {diff > 0 ? `+${diff}s` : `${diff}s`}
+        </Badge>
       </div>
 
-    </div>
+    </Card>
   );
 }

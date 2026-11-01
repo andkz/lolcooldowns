@@ -1,6 +1,8 @@
 import React, { useState, memo } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { getPassiveIconUrl } from '../services/riotApi';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 // Vercel Best Practice: js-hoist-regexp
 const HTML_TAGS_REGEX = /<[^>]*>/g;
@@ -15,12 +17,12 @@ function PassiveCardComponent({ passive, patch }) {
     .trim();
 
   return (
-    <div className="rounded-lg border border-[#161922] bg-[#090b10] px-3.5 py-2 mb-2.5 transition-all">
+    <Card className="rounded-lg border-border bg-card px-3.5 py-2 mb-2.5 transition-all">
       <div className="flex items-center justify-between text-xs">
         
         {/* Left: Icon, Name & Preview */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-5 h-5 rounded overflow-hidden border border-[#202533] shrink-0">
+          <div className="w-5 h-5 rounded overflow-hidden border border-border shrink-0">
             <img 
               src={getPassiveIconUrl(passive.image.full, patch)} 
               alt={passive.name}
@@ -30,35 +32,37 @@ function PassiveCardComponent({ passive, patch }) {
               }}
             />
           </div>
-          <span className="font-bold text-white text-xs truncate">
+          <span className="font-bold text-foreground text-xs truncate">
             Passive: {passive.name}
           </span>
           {!showDetails ? (
-            <span className="text-[#647187] text-[11px] hidden md:inline truncate max-w-md">
+            <span className="text-muted-foreground text-[11px] hidden md:inline truncate max-w-md">
               — {cleanDescription}
             </span>
           ) : null}
         </div>
 
         {/* Right: Expand / Collapse Toggle Button */}
-        <button 
+        <Button 
+          variant="ghost"
+          size="xs"
           onClick={() => setShowDetails(!showDetails)}
-          className="text-xs text-[#4a82e8] hover:text-white shrink-0 ml-2 flex items-center gap-1 font-medium transition"
+          className="h-6 px-2 text-xs text-primary hover:text-foreground shrink-0 ml-2 gap-1 font-medium transition"
         >
           <span>{showDetails ? 'Zwiń' : 'Rozwiń'}</span>
           {showDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
+        </Button>
       </div>
 
-      {/* Clean inline expansion inside container */}
-      {showDetails ? (
-        <div className="mt-2 pt-2 border-t border-[#141720] text-xs text-[#9aa7bd] leading-relaxed animate-in fade-in duration-150">
-          <strong className="text-white block mb-0.5">{passive.name}</strong>
-          {cleanDescription}
+      {/* Expanded details */}
+      {showDetails && (
+        <div className="mt-2 pt-2 border-t border-border/80 text-[11px] text-muted-foreground leading-relaxed animate-in fade-in duration-150">
+          <p>{cleanDescription}</p>
         </div>
-      ) : null}
-    </div>
+      )}
+    </Card>
   );
 }
 
-export default memo(PassiveCardComponent);
+const PassiveCard = memo(PassiveCardComponent);
+export default PassiveCard;

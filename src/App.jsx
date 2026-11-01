@@ -13,6 +13,8 @@ import {
   getChampionDetails 
 } from './services/riotApi';
 import { Loader2, AlertCircle, RefreshCw, LayoutGrid, Rows } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 // Vercel Best Practice: bundle-dynamic-imports
 // Lazy-load the heavy secondary Explanation tab to reduce initial bundle size
@@ -62,118 +64,132 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [searchModalOpen, searchBModalOpen]);
 
-  // Vercel Best Practice: async-parallel
-  // Parallelize independent fetches with Promise.all() to eliminate waterfalls
-  const loadData = useCallback(async (forceRefresh = false) => {
+  // Initial App Load
+  const initApp = useCallback(async (force = false) => {
     try {
-      if (forceRefresh) setIsRefreshing(true);
-      else setIsLoading(true);
       setError(null);
+      if (force) setIsRefreshing(true);
+      else setIsLoading(true);
 
-      // 1. Fetch latest active patch
-      const latestPatch = await getLatestPatch(forceRefresh);
+      const latestPatch = await getLatestPatch();
       setPatch(latestPatch);
 
-      // 2. Concurrently fetch champion list, primary details, and opponent details
-      const [champList, primaryDetails, opponentDetails] = await Promise.all([
-        getChampionList(latestPatch, forceRefresh),
-        getChampionDetails(selectedChampId, latestPatch),
-        getChampionDetails(champBId, latestPatch)
-      ]);
-
+      const champList = await getChampionList(latestPatch);
       setChampions(champList);
-      setChampionData(primaryDetails);
-      setChampBData(opponentDetails);
 
+      const details = await getChampionDetails(selectedChampId, latestPatch);
+      setChampionData(details);
+
+      if (isCompareMode && champBId) {
+        const detailsB = await getChampionDetails(champBId, latestPatch);
+        setChampBData(detailsB);
+      }
     } catch (err) {
-      console.error('Failed to load League data:', err);
-      setError('Could not connect to Riot Games Data Dragon. Please check your network connection.');
+      console.error("Failed to load Riot data:", err);
+      setError("Nie udało się pobrać danych z Riot Games Data Dragon API. Sprawdź połączenie z internetem.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [selectedChampId, champBId]);
+  }, [selectedChampId, champBId, isCompareMode]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    initApp();
+  }, [initApp]);
 
-  // Primary champion selection
+  // Fetch Champion A when selected
   const handleSelectChampion = async (champId) => {
     setSelectedChampId(champId);
     try {
       const details = await getChampionDetails(champId, patch);
       setChampionData(details);
     } catch (err) {
-      console.error(`Failed to load ${champId}:`, err);
+      console.error(`Failed to load champion ${champId}:`, err);
     }
   };
 
-  // Opponent champion selection
+  // Fetch Champion B when selected in compare mode
   const handleSelectChampB = async (champId) => {
     setChampBId(champId);
     try {
       const details = await getChampionDetails(champId, patch);
       setChampBData(details);
     } catch (err) {
-      console.error(`Failed to load opponent ${champId}:`, err);
+      console.error(`Failed to load comparison champion ${champId}:`, err);
     }
   };
 
-  const handleRefresh = () => {
-    loadData(true);
+  // When opening compare mode, make sure champ B data exists
+  const handleToggleCompareMode = async (enable) => {
+    setIsCompareMode(enable);
+    if (enable && !champBData && champBId && patch) {
+      try {
+        const details = await getChampionDetails(champBId, patch);
+        setChampBData(details);
+      } catch (err) {
+        console.error("Failed to load champ B:", err);
+      }
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#050608] text-[#e2e8f0] flex flex-col font-sans selection:bg-[#4a82e8]/25 selection:text-[#4a82e8]">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/20 selection:text-foreground">
       
-      {/* Header with Navigation Tabs */}
+      {/* Top Navigation */}
       <Header 
         patch={patch}
-        onRefresh={handleRefresh}
+        onRefresh={() => initApp(true)}
         isRefreshing={isRefreshing}
         isCompareMode={isCompareMode}
-        setIsCompareMode={setIsCompareMode}
+        setIsCompareMode={handleToggleCompareMode}
         onOpenSearch={() => setSearchModalOpen(true)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
-      {/* Main Content strictly capped at max-width 1000px */}
-      <main className="flex-1 w-full max-w-[1000px] mx-auto px-4 sm:px-6 py-4">
+      {/* Main App Container */}
+      <main className="flex-1 max-w-[1000px] w-full mx-auto px-4 sm:px-6 py-3">
         
-        {/* Loading State - Vercel Best Practice: rendering-conditional-render */}
-        {isLoading ? (
-          <div className="py-20 flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-7 h-7 text-[#4a82e8] animate-spin mb-3" />
-            <p className="text-xs font-semibold text-white">Loading Data Dragon...</p>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="py-24 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+            <h2 className="text-sm font-semibold text-foreground">
+              Łączenie z Riot Data Dragon API...
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pobieranie najnowszych patchów i cooldownów bohaterów
+            </p>
           </div>
-        ) : null}
+        )}
 
         {/* Error State */}
-        {error && !isLoading ? (
-          <div className="p-4 rounded-xl bg-[#0f090c] border border-[#3b1218] text-center max-w-md mx-auto my-8">
-            <AlertCircle className="w-7 h-7 text-[#f43f5e] mx-auto mb-2" />
-            <h3 className="text-xs font-bold text-white mb-1">Failed to Connect</h3>
-            <p className="text-[11px] text-[#9aa2b1] mb-3">{error}</p>
-            <button
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#f43f5e] text-white text-xs font-bold hover:bg-[#e11d48] transition"
+        {error && !isLoading && (
+          <div className="p-4 rounded-xl border border-destructive/40 bg-destructive/10 text-foreground flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
+              <p className="text-xs font-medium">{error}</p>
+            </div>
+            <Button 
+              variant="outline"
+              size="xs"
+              onClick={() => initApp(true)}
+              className="border-destructive/40 bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground text-xs font-semibold gap-1.5"
             >
               <RefreshCw className="w-3 h-3" />
-              <span>Retry</span>
-            </button>
+              <span>Spróbuj ponownie</span>
+            </Button>
           </div>
-        ) : null}
+        )}
 
-        {/* Active View: Calculator vs Lazy-loaded Explanation */}
+        {/* Loaded Content */}
         {!isLoading && !error && championData ? (
           <>
             {activeTab === 'explanation' ? (
               <Suspense fallback={
                 <div className="py-20 flex flex-col items-center justify-center text-center">
-                  <Loader2 className="w-7 h-7 text-[#4a82e8] animate-spin mb-3" />
-                  <p className="text-xs text-[#6e7a8e]">Loading Architecture & Documentation...</p>
+                  <Loader2 className="w-7 h-7 text-primary animate-spin mb-3" />
+                  <p className="text-xs text-muted-foreground">Loading Architecture & Documentation...</p>
                 </div>
               }>
                 <ExplanationPage 
@@ -228,34 +244,38 @@ export default function App() {
                 {/* Spells Header with Layout Toggle (List vs 2x2 Grid) */}
                 <div className="flex items-center justify-between px-1 pt-1 pb-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#525d72]">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                       Abilities Q, W, E, R
                     </span>
-                    <span className="text-[10px] tabular-nums text-[#4a82e8] bg-[#4a82e8]/10 px-1.5 py-0.2 rounded border border-[#4a82e8]/25">
+                    <Badge variant="outline" className="text-[10px] tabular-nums text-primary bg-primary/10 border-primary/30 px-1.5 py-0">
                       {abilityHaste} AH Active
-                    </span>
+                    </Badge>
                   </div>
 
                   {/* Grid vs List toggle */}
-                  <div className="flex items-center gap-1 bg-[#0d0f15] p-0.5 rounded border border-[#1a1e28]">
-                    <button
+                  <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded border border-border">
+                    <Button
+                      variant={spellsLayout === 'list' ? 'secondary' : 'ghost'}
+                      size="icon-xs"
                       onClick={() => setSpellsLayout('list')}
-                      className={`p-1 rounded text-[10px] transition ${
-                        spellsLayout === 'list' ? 'bg-[#1e2433] text-white' : 'text-[#5f687a] hover:text-white'
+                      className={`h-6 w-6 transition ${
+                        spellsLayout === 'list' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                       }`}
                       title="Single column list view"
                     >
                       <Rows className="w-3 h-3" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant={spellsLayout === 'grid' ? 'secondary' : 'ghost'}
+                      size="icon-xs"
                       onClick={() => setSpellsLayout('grid')}
-                      className={`p-1 rounded text-[10px] transition ${
-                        spellsLayout === 'grid' ? 'bg-[#1e2433] text-white' : 'text-[#5f687a] hover:text-white'
+                      className={`h-6 w-6 transition ${
+                        spellsLayout === 'grid' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                       }`}
                       title="2x2 Compact Grid view"
                     >
                       <LayoutGrid className="w-3 h-3" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
